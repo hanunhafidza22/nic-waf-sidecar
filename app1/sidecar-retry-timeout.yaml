@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-retry-timeout
+  namespace: app1
+data:
+  retry-timeout.conf: |
+    log_format retry_log '
+      $remote_addr - $remote_user [$time_local]
+      "$request" $status $body_bytes_sent
+      attempt1_status=$upstream_status[0] attempt1_addr=$upstream_addr[0] attempt1_time=$upstream_response_time[0]
+      attempt2_status=$upstream_status[1] attempt2_addr=$upstream_addr[1] attempt2_time=$upstream_response_time[1]
+      attempt3_status=$upstream_status[2] attempt3_addr=$upstream_addr[2] attempt3_time=$upstream_response_time[2]
+      total_request_time=$request_time
+    ';
+
+    access_log /var/log/nginx/access.log retry_log;
+    error_log /var/log/nginx/error.log info;
+
+    upstream coffee_upstream {
+        server 127.0.0.1:8080;
+        server 127.0.0.1:8081;
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://coffee_upstream;
+
+            # Retry policy
+            proxy_next_upstream error timeout http_502 http_503 http_504;
+            proxy_next_upstream_tries 3;
+            proxy_next_upstream_timeout 10s;
+
+            #Timeout
+            proxy_connect_timeout 2s;
+            proxy_read_timeout 3s;
+            proxy_send_timeout 5s;
+        }
+    }

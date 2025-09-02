@@ -1,0 +1,7 @@
+FROM nginx:alpine
+
+# Install curl untuk bisa testing
+RUN apk add --no-cache curl
+
+# Tambahkan file HTML khusus App2
+COPY app2.html /usr/share/nginx/html/index.html

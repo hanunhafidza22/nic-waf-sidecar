@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coffee
+  namespace: app1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coffee
+  template:
+    metadata:
+      labels:
+        app: coffee
+    spec:
+      containers:
+      #- name: coffee
+       # image: pleshakov/nginx-hello:0.1
+        #command: ["sleep", "300"]
+        #ports:
+        #- containerPort: 8080
+
+      #- name: success
+       # image: hashicorp/http-echo:0.2.3
+        #args:
+         # - "-listen=:8081"
+          #- "-text=Backend2 OK"
+        #ports:
+          #- containerPort: 8081
+
+      - name: coffee
+        image: mccutchen/go-httpbin
+        #args: ["-p", "8080"]
+        ports:
+          - containerPort: 8080
+
+      - name: coffee2
+        image: mccutchen/go-httpbin
+        command: ["/bin/go-httpbin"]
+        args: ["-port", "8081"]
+        ports:
+          - containerPort: 8081
+
+      - name: sidecar-retry-timeout
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: sidecar-retry-timeout
+          mountPath: /etc/nginx/conf.d
+          #subPath: limit-only.conf
+        - name: nginx-logs
+          mountPath: /var/log/nginx
+      volumes:
+      - name: sidecar-retry-timeout
+        configMap:
+          name: sidecar-retry-timeout
+      - name: nginx-logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coffee-svc
+  namespace: app1
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: coffee
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tea
+  namespace: app1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tea
+  template:
+    metadata:
+      labels:
+        app: tea
+    spec:
+      containers:
+      - name: tea
+        image: pleshakov/nginx-hello:0.1
+        ports:
+        - containerPort: 8080
+      - name: sidecar-retry-timeout
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: sidecar-retry-timeout
+          mountPath: /etc/nginx/conf.d
+          #subPath: limit-only.conf
+        - name: nginx-logs
+          mountPath: /var/log/nginx
+      volumes:
+      - name: sidecar-retry-timeout
+        configMap:
+          name: sidecar-retry-timeout
+      - name: nginx-logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tea-svc
+  namespace: app1
+  labels:
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: tea
