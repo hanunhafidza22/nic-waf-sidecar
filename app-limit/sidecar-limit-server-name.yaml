@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-nginx-config
+data:
+  limit-server-name.conf: |
+    limit_req_zone $server_name zone=per_server:10m rate=1r/s;
+
+    # Server untuk request dengan Host = app1.local
+    server {
+      listen 80;
+      server_name app1.local;
+
+      location / {
+        proxy_pass http://127.0.0.1:8080;
+        limit_req zone=per_server burst=5 nodelay;
+        limit_req_status 429;
+      }
+    }
+
+    # Default server untuk semua host selain app1.local
+    server {
+      listen 80 default_server;
+      return 403 "Forbidden: Only app1.local is allowed\n";
+    }

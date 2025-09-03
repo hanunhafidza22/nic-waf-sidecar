@@ -14,9 +14,9 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: app1
+            name: sidecar-app1
             port:
-              number: 8080
+              number: 80
   - host: app2.local
     http:
       paths:

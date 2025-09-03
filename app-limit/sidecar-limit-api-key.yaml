@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-api-key-limit
+data:
+  api-key-limit.conf: |
+    limit_req_zone $http_x_api_key zone=per_api_key:10m rate=10r/m;
+
+    server {
+      listen 80;
+      server_name _;
+
+      location / {
+        # Validasi API Key (hanya "testkey123" yang diterima)
+        if ($http_x_api_key != "testkey123") {
+          return 403 "Forbidden: Invalid API Key\n";
+        }
+
+        # Terapkan rate limit
+        limit_req zone=per_api_key burst=20 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8080;
+      }
+    }
