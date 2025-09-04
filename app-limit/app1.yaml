@@ -46,7 +46,7 @@ spec:
       volumes:
       - name: sidecar-config
         configMap:
-          name: sidecar-nginx-config
+          name: sidecar-api-key-limit-dynamic-web
       - name: nginx-logs
         emptyDir: {}
 ---

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-api-key-limit-dynamic-web
+data:
+  api-key-limit-dynamic-web.conf: |
+    # Mapping API Key: ambil dari query string ?api_key=... atau header X-API-Key
+    map $arg_api_key $request_api_key {
+        default $arg_api_key;
+        ""      $http_x_api_key;
+    }
+
+    # Kalau tetap kosong, anggap anonymous
+    map $request_api_key $limit_key {
+        default     $request_api_key;
+        ""          "anonymous";
+    }
+
+    # Rate limit per API Key (10 req per menit)
+    limit_req_zone $limit_key zone=per_api_key:10m rate=10r/m;
+
+    server {
+      listen 80;
+      server_name _;
+
+      location / {
+        # Validasi: kalau tidak ada API Key dari query maupun header → tolak
+        if ($limit_key = "anonymous") {
+          return 403 "Forbidden: Missing API Key\n";
+        }
+
+        # Rate limit per API Key
+        limit_req zone=per_api_key burst=20 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8080;
+      }
+    }
