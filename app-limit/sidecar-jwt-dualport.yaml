@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-jwt-dualport
+data:
+  sidecar-jwt-dualport.conf: |
+    # Map claim sub → limit key (aktif hanya jika token valid)
+    map $jwt_claim_sub $limit_key {
+        ""          "";
+        default     $jwt_claim_sub;
+    }
+
+    # Rate limit zone untuk path /
+    limit_req_zone $limit_key zone=zone_root:10m rate=10r/m;
+
+    # Rate limit zone untuk path /admin
+    limit_req_zone $limit_key zone=zone_admin:10m rate=6r/m;
+
+    # Format log untuk observasi
+    log_format jwt '$remote_addr - $limit_key [$time_local] '
+                   '"$request" $status $body_bytes_sent '
+                   'sub=$jwt_claim_sub';
+
+    server {
+      listen 80;
+      server_name app1.local;
+
+      access_log /var/log/nginx/access-jwt.log jwt;
+      error_log  /var/log/nginx/error-jwt.log;
+
+      # Validasi JWT global untuk semua path
+      auth_jwt "Keycloak JWT";
+      auth_jwt_key_request /_jwks_uri;
+
+      location / {
+        satisfy any;
+        allow all;
+
+        limit_req zone=zone_root burst=10 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8080;
+      }
+
+      location /admin {
+        satisfy any;
+        allow all;
+
+        limit_req zone=zone_admin burst=5 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8081;
+      }
+
+      location = /_jwks_uri {
+        proxy_pass http://10.8.160.11:8081/realms/demo/protocol/openid-connect/certs;
+      }
+    }

@@ -13,11 +13,15 @@ data:
     # Rate limit zone per JWT subject
     limit_req_zone $limit_key zone=per_jwt_sub:10m rate=5r/s;
 
+    log_format jwt '$remote_addr - $limit_key [$time_local] '
+                   '"$request" $status $body_bytes_sent '
+                   'sub=$jwt_claim_sub';
+
     server {
       listen 80;
       server_name _;
 
-      access_log /var/log/nginx/access-jwt.log;
+      access_log /var/log/nginx/access-jwt.log jwt;
       error_log  /var/log/nginx/error-jwt.log;
 
       location / {
