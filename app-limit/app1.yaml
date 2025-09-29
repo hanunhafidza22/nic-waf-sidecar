@@ -34,7 +34,8 @@ spec:
 
       # Sidecar NGINX
       - name: sidecar-nginx
-        image: nginx:alpine
+        image: hanunhafi22/nginx-plus:r35-alpine
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         volumeMounts:
@@ -43,12 +44,18 @@ spec:
           #subPath: default.conf
         - name: nginx-logs
           mountPath: /var/log/nginx
+        - name: nginx-plus-license
+          mountPath: /etc/nginx/license.jwt
+          subPath: license.jwt
       volumes:
       - name: sidecar-config
         configMap:
-          name: sidecar-api-key-limit-dynamic-web
+          name: sidecar-jwt
       - name: nginx-logs
         emptyDir: {}
+      - name: nginx-plus-license
+        secret:
+          secretName: nginx-plus-license
 ---
 apiVersion: v1
 kind: Service

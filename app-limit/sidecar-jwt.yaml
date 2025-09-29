@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-jwt
+data:
+  sidecar-jwt-scenario.conf: |
+    # Map claim sub → limit key (hanya aktif jika token valid)
+    map $jwt_claim_sub $limit_key {
+        ""          "";
+        default     $jwt_claim_sub;
+    }
+
+    # Rate limit zone per JWT subject
+    limit_req_zone $limit_key zone=per_jwt_sub:10m rate=5r/s;
+
+    server {
+      listen 80;
+      server_name _;
+
+      access_log /var/log/nginx/access-jwt.log;
+      error_log  /var/log/nginx/error-jwt.log;
+
+      location / {
+        satisfy any;
+
+        # Validasi JWT jika token ada
+        auth_jwt "Keycloak JWT";
+        auth_jwt_key_request /_jwks_uri;
+
+        # Fallback: izinkan semua jika tidak ada token
+        allow all;
+
+        # Rate limit hanya aktif jika token valid
+        limit_req zone=per_jwt_sub burst=10 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8080;
+      }
+
+      location = /_jwks_uri {
+        proxy_pass http://10.8.160.11:8081/realms/demo/protocol/openid-connect/certs;
+      }
+    }
