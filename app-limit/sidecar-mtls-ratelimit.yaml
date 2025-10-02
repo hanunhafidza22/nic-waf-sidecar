@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-mtls-ratelimit
+  namespace: default
+data:
+  mtls-ratelimit.conf: |
+    log_format mtls '$remote_addr - $ssl_client_s_dn [$time_local] '
+                '"$request" $status $body_bytes_sent '
+                '"$http_user_agent" "$ssl_client_verify" $request_time';
+
+    limit_req_zone $ssl_client_s_dn zone=perclient:10m rate=6r/m;
+
+    server {
+      listen 8443 ssl;
+      server_name app1.local;
+
+      access_log /var/log/nginx/access-mtls.log mtls;
+      error_log  /var/log/nginx/error-mtls.log debug;
+
+      ssl_certificate     /etc/nginx/ssl/tls.crt;
+      ssl_certificate_key /etc/nginx/ssl/tls.key;
+      ssl_client_certificate /etc/nginx/ca/ca.crt;
+      ssl_verify_client on;
+
+      limit_req_status 429;
+      error_page 429 = @rate_limit;
+
+      location / {
+        limit_req zone=perclient burst=10 nodelay;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Client-DN $ssl_client_s_dn;
+        proxy_set_header X-Client-Verify $ssl_client_verify;
+      }
+
+      location @rate_limit {
+        add_header Retry-After 60 always;
+        add_header Content-Type "text/plain" always;
+        return 429 "Too Many Requests\n";
+      }
+    }

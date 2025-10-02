@@ -56,25 +56,48 @@ spec:
         image: hanunhafi22/nginx-plus:r35-alpine
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 80
+        - containerPort: 8443
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          nginx -g 'daemon off;'
         volumeMounts:
         - name: sidecar-config
           mountPath: /etc/nginx/conf.d
-          #subPath: default.conf
+          #subPath: mtls.conf
         - name: nginx-logs
           mountPath: /var/log/nginx
         - name: nginx-plus-license
           mountPath: /etc/nginx/license.jwt
           subPath: license.jwt
+        - name: sidecar-server-tls
+          mountPath: /etc/nginx/ssl
+          readOnly: true
+        - name: sidecar-ca
+          mountPath: /etc/nginx/ca
+          readOnly: true
+        - name: client-cert
+          mountPath: /etc/nginx/client
+          readOnly: true
       volumes:
       - name: sidecar-config
         configMap:
-          name: sidecar-jwt-dualport
+          name: sidecar-mtls-ratelimit
+      - name: sidecar-server-tls
+        secret:
+          secretName: sidecar-server-tls
+      - name: sidecar-ca
+        secret:
+          secretName: sidecar-ca
       - name: nginx-logs
         emptyDir: {}
       - name: nginx-plus-license
         secret:
           secretName: nginx-plus-license
+      - name: client-cert
+        secret:
+          secretName: client-cert
+
 ---
 apiVersion: v1
 kind: Service
@@ -84,5 +107,5 @@ spec:
   selector:
     app: app1
   ports:
-    - port: 80
-      targetPort: 80
+    - port: 8443
+      targetPort: 8443

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-mtls-validation
+  namespace: default
+data:
+  mtls.conf: |
+    log_format mtls '$remote_addr - $ssl_client_s_dn [$time_local] '
+                '"$request" $status $body_bytes_sent '
+                '"$http_user_agent" "$ssl_client_verify"';
+  
+    server {
+      listen 80;
+
+      return 301 https://$host$request_uri;
+    }
+
+    server {
+      listen 8443 ssl;
+      server_name app1.local;
+
+
+      access_log /var/log/nginx/access-mtls.log mtls;
+      error_log  /var/log/nginx/error-mtls.log debug;
+
+      ssl_certificate     /etc/nginx/ssl/tls.crt;
+      ssl_certificate_key /etc/nginx/ssl/tls.key;
+      ssl_client_certificate /etc/nginx/ca/ca.crt;
+      ssl_verify_client on;
+      #ssl_verify_depth 1;
+
+      location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        #proxy_set_header X-Real-IP $remote_addr;
+        #proxy_set_header X-Client-DN $ssl_client_s_dn;
+        #proxy_set_header X-Client-Verify $ssl_client_verify;
+      }
+    }
