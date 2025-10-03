@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-jwt-ns-ratelimit
+  namespace: default
+data:
+  sidecar-jwt-cross-ns.conf: |
+    map $jwt_claim_namespace $ns_code {
+        "default" 1;
+        "app1"    2;
+        ""        0;
+    }
+
+    # Key hanya aktif untuk default
+    map $ns_code $key_default {
+        1 "ns_default";
+        default "";
+    }
+
+    # Key hanya aktif untuk app1
+    map $ns_code $key_app1 {
+        2 "ns_app1";
+        default "";
+    }
+
+    # Zone per-namespace
+    limit_req_zone $key_default zone=zone_default:10m rate=12r/m;
+    limit_req_zone $key_app1    zone=zone_app1:10m    rate=6r/m;
+
+    log_format jwt '$remote_addr ns=$jwt_claim_namespace ns_code=$ns_code '
+                   'key_default=$key_default key_app1=$key_app1 '
+                   '[$time_local] "$request" $status $body_bytes_sent';
+
+    server {
+      listen 80;
+
+      access_log /var/log/nginx/access-jwt.log jwt;
+      error_log  /var/log/nginx/error-jwt.log;
+
+      auth_jwt "Keycloak JWT";
+      auth_jwt_key_request /_jwks_uri;
+
+      location / {
+        satisfy any;
+        allow all;
+
+        # hanya zone yg punya key non-empty yg jalan
+        limit_req zone=zone_default burst=10 nodelay;
+        limit_req zone=zone_app1    burst=3 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8080;
+      }
+
+      location /admin {
+        satisfy any;
+        allow all;
+
+        limit_req zone=zone_default burst=5 nodelay;
+        limit_req zone=zone_app1    burst=2 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:8081;
+      }
+
+      location = /_jwks_uri {
+        proxy_pass http://10.8.160.11:8081/realms/demo/protocol/openid-connect/certs;
+      }
+    }

@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    #nginx.ingress.kubernetes.io/tls-passthrough: "true"
+    #nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+#  tls:
+ # - hosts:
+  #    - app1.local
+   # secretName: app1-tls
+  rules:
+#  - host: app1.local
+ #   http:
+  #    paths:
+    #  - path: /
+   #     pathType: Prefix
+     #   backend:
+      #    service:
+       #     name: sidecar-app1
+        #    port:
+         #     number: 8443
+  - host: app2.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: app2
+            port:
+              number: 8080

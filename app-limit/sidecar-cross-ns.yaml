@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-cross-ns
+  namespace: default
+data:
+  sidecar-cross-ns.conf: |
+    upstream app1_backend {
+        server 127.0.0.1:8080;   # container app1
+    }
+
+    upstream app1_admin {
+        server 127.0.0.1:8081;   # container app1-8081
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://app1_backend;
+        }
+
+        location /admin {
+            proxy_pass http://app1_admin;
+        }
+    }

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-pod
+  namespace: app1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-pod
+  template:
+    metadata:
+      labels:
+        app: test-pod
+    spec:
+      containers:
+      - name: test-pod
+        image: nginx:alpine
+        ports:
+        - containerPort: 8080
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo 'server {
+            listen 8080;
+            server_name localhost;
+            location / {
+              root /usr/share/nginx/html;
+              index index.html;
+            }
+          }' > /etc/nginx/conf.d/default.conf &&
+          echo '<h1>Hello! Welcome to Test App (from namespace app1)</h1>' > /usr/share/nginx/html/index.html &&
+          nginx -g 'daemon off;'
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-pod
+  namespace: app1
+spec:
+  selector:
+    app: test-pod
+  ports:
+    - port: 8080
+      targetPort: 8080
