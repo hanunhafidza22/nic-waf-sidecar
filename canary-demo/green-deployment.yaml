@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-green
+  namespace: canary-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+      version: green
+  template:
+    metadata:
+      labels:
+        app: hello
+        version: green
+    spec:
+      containers:
+      - name: hello
+        image: hanunhafi22/hello-green:v2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
